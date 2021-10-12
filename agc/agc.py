@@ -70,11 +70,30 @@ def get_arguments():
     return parser.parse_args()
 
 def read_fasta(amplicon_file, minseqlen):
-    pass
+    with gzip.open(amplicon_file, "rt") as  file:
+        lines = ""
+        for line in file:
+            if line[0] == ">":
+                pass
+            elif len(line) < 80:
+                lines = lines + str(line.strip())
+                if len(lines) >= minseqlen:
+                    yield (lines)
+                lines = ""
+            else:
+                lines = lines + str(line.strip())
 
 
 def dereplication_fulllength(amplicon_file, minseqlen, mincount):
-    pass
+    list_read = [read for read in read_fasta(amplicon_file, minseqlen)]
+    set_read = list(set(list_read))
+    count_read = []
+    for i in range(0, len(set_read), 1):
+        if list_read.count(set_read[i]) >= mincount:
+            count_read.append([set_read[i], list_read.count(set_read[i])])
+    count_read.sort(key= lambda x: x[1], reverse=True)
+    for i in range(0, len(count_read), 1):
+        yield(count_read[i])
 
 
 def get_unique(ids):
@@ -114,7 +133,21 @@ def chimera_removal(amplicon_file, minseqlen, mincount, chunk_size, kmer_size):
     pass
 
 def abundance_greedy_clustering(amplicon_file, minseqlen, mincount, chunk_size, kmer_size):
-    pass
+    seq_len = list(dereplication_fulllength(amplicon_file, minseqlen, mincount))
+    OTU_list = [seq_len[0]]
+    for i in range(1, len(seq_len), 1):
+        sequence1 = seq_len[i][0]
+        j = 0
+        while j != len(OTU_list)-1:
+            sequence2 = OTU_list[j][0]
+            alignment_list=nw.global_align(sequence1, sequence2, gap_open=-1,
+gap_extend=-1, matrix=os.path.abspath(os.path.join(os.path.dirname(__file__),"MATCH")))
+            if get_identity < 97.0:
+                OTU_list.append(seq_len[i])
+                j = len(OTU_list)-1
+            else:
+                j += 1
+
 
 def fill(text, width=80):
     """Split text with a line return to respect fasta format"""
