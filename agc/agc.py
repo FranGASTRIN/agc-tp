@@ -74,14 +74,12 @@ def read_fasta(amplicon_file, minseqlen):
         lines = ""
         for line in file:
             if line[0] == ">":
-                pass
-            elif len(line) < 80:
-                lines = lines + str(line.strip())
                 if len(lines) >= minseqlen:
-                    yield (lines)
+                    yield(lines)
                 lines = ""
             else:
                 lines = lines + str(line.strip())
+	yield(lines)
 
 
 def dereplication_fulllength(amplicon_file, minseqlen, mincount):
@@ -95,6 +93,28 @@ def dereplication_fulllength(amplicon_file, minseqlen, mincount):
     for i in range(0, len(count_read), 1):
         yield(count_read[i])
 
+
+def get_unique_kmer(kmer_dict, sequence, id_seq, kmer_size):
+    for kmer in cut_kmer(sequence, kmer_size):
+	if kmer in kmer_dict:
+	    kmer_dict[kmer].append(id_seq)
+	else:
+	   kmer_dict[kmer] = [id_seq] 
+    return(kmer_dict)
+
+
+def search_mates(kmer_dict, sequence, kmer_size):
+    parent_list = []
+    for kmer in cut_kmer(sequence, kmer_size):
+	if kmer in kmer_dict:
+	    if len(parent_list) == 0: 
+		parent_list = kmer_dict[kmer]
+	    else:
+		parent_list = parent_list + kmer_dict[kmer]
+    commun = Counter(parent_list).most_common(2)
+    parents_id = [commun[0][0],commun[1][0]]
+    return(parents_id)
+	    
 
 def get_unique(ids):
     return {}.fromkeys(ids).keys()
@@ -137,16 +157,17 @@ def abundance_greedy_clustering(amplicon_file, minseqlen, mincount, chunk_size, 
     OTU_list = [seq_len[0]]
     for i in range(1, len(seq_len), 1):
         sequence1 = seq_len[i][0]
-        j = 0
+        j = i + 1
         while j != len(OTU_list)-1:
             sequence2 = OTU_list[j][0]
-            alignment_list=nw.global_align(sequence1, sequence2, gap_open=-1,
+            alignment_list = nw.global_align(sequence1, sequence2, gap_open=-1,
 gap_extend=-1, matrix=os.path.abspath(os.path.join(os.path.dirname(__file__),"MATCH")))
-            if get_identity < 97.0:
+            if get_identity(alignment_list) < 97.0:
                 OTU_list.append(seq_len[i])
                 j = len(OTU_list)-1
             else:
                 j += 1
+    return(OTU_list)
 
 
 def fill(text, width=80):
@@ -154,7 +175,10 @@ def fill(text, width=80):
     return os.linesep.join(text[i:i+width] for i in range(0, len(text), width))
 
 def write_OTU(OTU_list, output_file):
-    pass
+    with open(output_file, "a") as save:
+	for i in range(0, len(OTU_list), 1):
+	    n = i+1
+	    save.write(">OTU_{} occurrence:{}\n{}".format(n, OTU_list[i][1], fill(OTU_list[i][0])))
 
 #==============================================================
 # Main program
