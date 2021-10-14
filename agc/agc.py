@@ -79,7 +79,8 @@ def read_fasta(amplicon_file, minseqlen):
                 lines = ""
             else:
                 lines = lines + str(line.strip())
-	yield(lines)
+	if len(lines) >= minseqlen:
+	    yield(lines)
 
 
 def dereplication_fulllength(amplicon_file, minseqlen, mincount):
@@ -149,8 +150,46 @@ def get_identity(alignment_list):
             id_nu += 1
     return round(100.0 * id_nu / len(alignment_list[0]), 2)
 
+
+def std(data):
+    st_dev = statistics.pstdev(data)
+    return(st_dev)
+
+
+def detect_chimera(perc_identity_matrix):
+    seq_similar = []
+    list_std =[std(elem) for elem in perc_identity_matrix]
+    mean_std = statistics.mean(list_std)
+    for i in range(0, len(perc_identity_matrix), 1):
+	if perc_identity_matrix[i][0] > perc_identity_matrix[i][1]:
+	    seq_similar.append(0)
+	else:
+	    seq_similar.append(1)
+    if mean_std > 5:
+	if seq_similar.count(0) >= 1 and seq_similar.count(1) >= 1:
+	    return(True)
+	else:
+	    return(False)
+    else:
+	return(False)
+
+
 def chimera_removal(amplicon_file, minseqlen, mincount, chunk_size, kmer_size):
-    pass
+    sequences = list(dereplication_fulllength(amplicon_file, minseqlen, mincount))
+    yield(sequences[0])
+    yield(sequences[1])
+    for i in range(0, len(sequences), 1):
+	for chunk in get_chunks(sequence, chunk_size):
+	    if i == 0 or i == 1:
+		kmer_dict = get_unique_kmer(kmer_dict, chunk, i, kmer_size)
+	    else:
+		parents = search_mates(kmer_dict, sequence, kmer_size)
+
+		
+
+		yield(sequences[i])
+
+	    
 
 def abundance_greedy_clustering(amplicon_file, minseqlen, mincount, chunk_size, kmer_size):
     seq_len = list(dereplication_fulllength(amplicon_file, minseqlen, mincount))
