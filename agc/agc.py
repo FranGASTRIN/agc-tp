@@ -101,7 +101,8 @@ def dereplication_fulllength(amplicon_file, minseqlen, mincount):
 def get_unique_kmer(kmer_dict, sequence, id_seq, kmer_size):
     for kmer in cut_kmer(sequence, kmer_size):
         if kmer in kmer_dict:
-            kmer_dict[kmer].append(id_seq)
+            if id_seq not in kmer_dict[kmer]:
+                kmer_dict[kmer].append(id_seq)
         else:
             kmer_dict[kmer] = [id_seq] 
     return(kmer_dict)
@@ -179,48 +180,50 @@ def detect_chimera(perc_identity_matrix):
 
 def chimera_removal(amplicon_file, minseqlen, mincount, chunk_size, kmer_size):
     kmer_dict ={}
-    sequences = list(dereplication_fulllength(amplicon_file, minseqlen, mincount))
+    sequences = dereplication_fulllength(amplicon_file, minseqlen, mincount)
     # Par défaut les 2 première seq sont définies comme non chimérique
     no_chim_list = []
 
-    no_chim_list.append(sequences[0])
-    for chunk in get_chunks(sequences[0][0], chunk_size):  # MàJ du dictionnaire de Kmer sans chimère
+    no_chim_list.append(next(sequences, None))
+    no_chim_list.append(next(sequences, None))
+
+    for chunk in get_chunks(no_chim_list[0][0], chunk_size):  # MàJ du dictionnaire de Kmer sans chimère
                 kmer_dict = get_unique_kmer(kmer_dict, chunk, 0, kmer_size)
-    no_chim_list.append(sequences[1])
-    for chunk in get_chunks(sequences[1][0], chunk_size):
+    for chunk in get_chunks(no_chim_list[1][0], chunk_size):
                 kmer_dict = get_unique_kmer(kmer_dict, chunk, 1, kmer_size)
     
-    for i in range(2, len(sequences), 1):
-	parents = search_mates(kmer_dict, sequences[i][0], kmer_size)  # Recherche de parents
-	# Si moins de 2 parents => séquence considérée comme non-chimérique
-	if len(parents) < 2:
-	    no_chim_list.append(sequences[i])
-	    for chunk in get_chunks(sequences[i][0], chunk_size):
-		kmer_dict = get_unique_kmer(kmer_dict, chunk, i, kmer_size)
-	else:
-	    chunks = get_chunks(sequences[i][0], chunk_size)		# Découpe séquence en segments
-	    par_1 = get_chunks(sequences[parents[0]][0], chunk_size)	#
-	    par_2 = get_chunks(sequences[parents[1]][0], chunk_size)	# Découpe des parents
+    sequences = list(sequences)
+    for i in range(0, len(sequences), 1):
+    	parents = search_mates(kmer_dict, sequences[i][0], kmer_size)  # Recherche de parents
+    	# Si moins de 2 parents => séquence considérée comme non-chimérique
+    	if len(parents) < 2:
+    	    no_chim_list.append(sequences[i])
+    	    for chunk in get_chunks(sequences[i][0], chunk_size):
+                kmer_dict = get_unique_kmer(kmer_dict, chunk, i+2, kmer_size)
+    	else:
+    	    chunks = get_chunks(sequences[i][0], chunk_size)		    # Découpe séquence en segments
+    	    par_1 = get_chunks(sequences[parents[0]][0], chunk_size)	#
+    	    par_2 = get_chunks(sequences[parents[1]][0], chunk_size)	# Découpe des parents
 
-	    perc_identity_matrix = []		# Création d'une matrice d'identité de forme
-					# 1ere ligne : [segment 1 séquence 1, segment 1 séquence 2]
-						# et ainsi de suite
-	    for j in range(0, len(chunks), 1):
-		ident_1 = nw.global_align(chunks[j], par_1[j], gap_open=-1,
-                                          gap_extend=-1, matrix= match)
-		ident_2 = nw.global_align(chunks[j], par_2[j], gap_open=-1,
-                                          gap_extend=-1, matrix= match)
-		perc_identity_matrix.append([get_identity(ident_1), get_identity(ident_2)])
-	# Détecte si la séquence est une chimère ou non 
-	    if detect_chimera(perc_identity_matrix) == True: # Si oui
-		pass
-	    else:					     # Si non
-	        no_chim_list.append(sequences[i])
-	        for chunk in get_chunks(sequences[i][0], chunk_size):
-                    kmer_dict = get_unique_kmer(kmer_dict, chunk, i, kmer_size)
+    	    perc_identity_matrix = []		# Création d'une matrice d'identité de forme
+    					                    # 1ere ligne : [segment 1 séquence 1, segment 1 séquence 2]
+    						                # et ainsi de suite
+    	    for j in range(0, len(chunks), 1):
+        		ident_1 = nw.global_align(chunks[j], par_1[j], gap_open=-1,
+                                                  gap_extend=-1, matrix= match)
+        		ident_2 = nw.global_align(chunks[j], par_2[j], gap_open=-1,
+                                                  gap_extend=-1, matrix= match)
+        		perc_identity_matrix.append([get_identity(ident_1), get_identity(ident_2)])
+    	# Détecte si la séquence est une chimère ou non 
+    	    if detect_chimera(perc_identity_matrix) == True: # Si oui
+                pass
+    	    else:					                         # Si non
+    	        no_chim_list.append(sequences[i])
+    	        for chunk in get_chunks(sequences[i][0], chunk_size):
+                        kmer_dict = get_unique_kmer(kmer_dict, chunk, i+2, kmer_size)
     
-    for k in range(0, len(no_chim_list), 1):	# Générateur sans séquences chimériques
-	yield(no_chim_list[i]) 
+    for elem in no_chim_list:
+        yield(elem)		# Générateur sans séquences chimériques 
             
 	    
 
