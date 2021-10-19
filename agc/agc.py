@@ -229,29 +229,9 @@ def chimera_removal(amplicon_file, minseqlen, mincount, chunk_size, kmer_size):
 
 def abundance_greedy_clustering(amplicon_file, minseqlen, mincount, chunk_size, kmer_size):
     
-    '''match = os.path.abspath(os.path.join(os.path.dirname(__file__),"MATCH"))
-    seq_len = list(dereplication_fulllength(amplicon_file, minseqlen, mincount))
-    OTU_list = [seq_len[0]]
-    for i in range(1, len(seq_len), 1):
-        sequence1 = seq_len[i][0]
-        j = i + 1
-        while j != len(OTU_list)-1:
-            sequence2 = OTU_list[j][0]
-            alignment_list = nw.global_align(sequence1, sequence2, gap_open=-1,
-                                             gap_extend=-1, matrix= match)
-            if get_identity(alignment_list) < 97.0:
-                OTU_list.append(seq_len[i])
-                j = len(OTU_list)-1
-            else:
-                j += 1
-    return(OTU_list)
-    '''
-    
     match = os.path.abspath(os.path.join(os.path.dirname(__file__),"MATCH"))
-    #seq_len = list(dereplication_fulllength(amplicon_file, minseqlen, mincount))
     seq_len = list(chimera_removal(amplicon_file, minseqlen, mincount, chunk_size, kmer_size))
     OTU_list = [seq_len[0]]
-    #OTU_list.append(next(seq_len,None))
     
     for elem in seq_len:
         for otu in OTU_list:
@@ -267,9 +247,6 @@ def fill(text, width=80):
     return os.linesep.join(text[i:i+width] for i in range(0, len(text), width))
 
 def write_OTU(OTU_list, output_file):
-    
-    # Pour François : avec output_file,"a" ça passait po le test,
-    # avec output_file,"wt" ça passe le test.
     
     with open(output_file, "wt") as save:
         for i in range(0, len(OTU_list), 1):
